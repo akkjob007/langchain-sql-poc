@@ -2,20 +2,12 @@ import re
 from typing import Any, Dict, List, TypedDict
 from langchain_community.utilities import SQLDatabase
 from langgraph.graph import END, StateGraph
-from prompts.sql_prompts import SQL_GEN_PROMPT, ANSWER_PROMPT
+from prompts.sql_prompts import ANSWER_PROMPT
 from langchain import hub
 from typing_extensions import Annotated
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
 
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
-
-def strip_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-zA-Z0-9]*\n?", "", text)
-        text = text.rstrip("`")
-    text = text.replace("```", "").strip()
-    return text
 
 class QAState(TypedDict):
     question: str
@@ -63,12 +55,12 @@ def build_agent(db: SQLDatabase, llm) -> Any:
         answer = llm.invoke(prompt).content.strip()
         return {**state, "answer": answer}
 
-    g = StateGraph(QAState)
-    g.add_node("gen_sql", gen_sql)
-    g.add_node("exec_sql", exec_sql)
-    g.add_node("answer_node", answer_node_fn)
-    g.set_entry_point("gen_sql")
-    g.add_edge("gen_sql", "exec_sql")
-    g.add_edge("exec_sql", "answer_node")
-    g.add_edge("answer_node", END)
-    return g.compile()
+    state_graph = StateGraph(QAState)
+    state_graph.add_node("gen_sql", gen_sql)
+    state_graph.add_node("exec_sql", exec_sql)
+    state_graph.add_node("answer_node", answer_node_fn)
+    state_graph.set_entry_point("gen_sql")
+    state_graph.add_edge("gen_sql", "exec_sql")
+    state_graph.add_edge("exec_sql", "answer_node")
+    state_graph.add_edge("answer_node", END)
+    return state_graph.compile()
