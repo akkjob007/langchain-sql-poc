@@ -38,6 +38,3 @@ python main.py
 ```
 
 You will be prompted to select an LLM model and then you can ask questions about the employee database.
-
-## License
-This project is licensed under the MIT License.
