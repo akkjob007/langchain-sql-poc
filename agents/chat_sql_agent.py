@@ -6,6 +6,7 @@ from prompts.sql_prompts import ANSWER_PROMPT
 from langchain import hub
 from typing_extensions import Annotated
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
+from agents.visualization_agent import build_visualization_agent, is_visualization_request
 
 query_prompt_template = hub.pull("langchain-ai/sql-query-system-prompt")
 
@@ -16,6 +17,7 @@ class QAState(TypedDict):
     executed_sql: str
     sql_result: List[Any]
     answer: str
+    chart_spec: str
 
 class QueryOutput(TypedDict):
     """Generated SQL query."""
@@ -54,13 +56,35 @@ def build_agent(db: SQLDatabase, llm) -> Any:
         )
         answer = llm.invoke(prompt).content.strip()
         return {**state, "answer": answer}
+    
+    # Create the visualization agent
+    visualization_node_fn = build_visualization_agent(llm)
+    
+    # Router function to determine if visualization is needed
+    def should_visualize(state: QAState) -> str:
+        # Use LLM to check if visualization is requested in the question
+        viz_request = is_visualization_request(llm, state["question"])
+        if viz_request["is_visualization_request"]:
+            return "visualize"
+        return "end"
 
     state_graph = StateGraph(QAState)
     state_graph.add_node("gen_sql", gen_sql)
     state_graph.add_node("exec_sql", exec_sql)
     state_graph.add_node("answer_node", answer_node_fn)
+    state_graph.add_node("visualize", visualization_node_fn)
+    
     state_graph.set_entry_point("gen_sql")
     state_graph.add_edge("gen_sql", "exec_sql")
     state_graph.add_edge("exec_sql", "answer_node")
-    state_graph.add_edge("answer_node", END)
+    state_graph.add_conditional_edges(
+        "answer_node",
+        should_visualize,
+        {
+            "visualize": "visualize",
+            "end": END
+        }
+    )
+    state_graph.add_edge("visualize", END)
+    
     return state_graph.compile()
