@@ -8,3 +8,4 @@ langchain_experimental
 langgraph
 langchain_google_genai
 langchainhub
+matplotlib==3.8.2
