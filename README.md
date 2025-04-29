@@ -1,4 +1,4 @@
-# langchain-sql-poc
+# langgraph-sql-visualizer
 
 This project is a demonstration of using LangChain with SQL databases to create a conversational agent. The agent can interact with a SQL database using natural language queries and provides answers based on the database content. It also supports generating visualizations of the data.
 
